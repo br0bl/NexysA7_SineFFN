@@ -1,0 +1,246 @@
+{
+  "arithmetic_contract": {
+    "accumulator": "signed int32",
+    "activation": "signed int8",
+    "designated_rounding": "double (TensorFlow Lite BUILTIN_REF / default TFLM reference contract)",
+    "multiply": "TFLite/gemmlowp MultiplyByQuantizedMultiplier",
+    "product": "signed int8 centered activation times signed int8 weight",
+    "saturation": "clamp after output zero-point addition and fused activation",
+    "weight": "signed int8 with zero-point 0"
+  },
+  "layers": [
+    {
+      "activation": {
+        "fused": "RELU",
+        "maximum": 127,
+        "minimum": -128
+      },
+      "bias": {
+        "dtype": "INT32",
+        "scale": 9.88754109130241e-05,
+        "zero_point": 0
+      },
+      "input": {
+        "dtype": "INT8",
+        "scale": 0.024480115622282028,
+        "zero_point": -128
+      },
+      "input_count": 1,
+      "layer_index": 1,
+      "output": {
+        "dtype": "INT8",
+        "scale": 0.01332512404769659,
+        "zero_point": -128
+      },
+      "output_count": 16,
+      "requantization": {
+        "formula": "MultiplyByQuantizedMultiplier(acc, multiplier, shift)",
+        "multipliers": [
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736,
+          2039655736
+        ],
+        "real_multipliers": [
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408,
+          0.007420224341242408
+        ],
+        "shifts": [
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7,
+          -7
+        ]
+      },
+      "weights": {
+        "address_formula": "output_neuron * input_count + input_tap",
+        "dtype": "INT8",
+        "quantized_dimension": 0,
+        "scale": 0.004039009101688862,
+        "storage_order": "output-neuron-major",
+        "zero_point": 0
+      }
+    },
+    {
+      "activation": {
+        "fused": "RELU",
+        "maximum": 127,
+        "minimum": -128
+      },
+      "bias": {
+        "dtype": "INT32",
+        "scale": 0.00014517262752633542,
+        "zero_point": 0
+      },
+      "input": {
+        "dtype": "INT8",
+        "scale": 0.01332512404769659,
+        "zero_point": -128
+      },
+      "input_count": 16,
+      "layer_index": 2,
+      "output": {
+        "dtype": "INT8",
+        "scale": 0.012775269336998463,
+        "zero_point": -128
+      },
+      "output_count": 16,
+      "requantization": {
+        "formula": "MultiplyByQuantizedMultiplier(acc, multiplier, shift)",
+        "multipliers": [
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795,
+          1561796795
+        ],
+        "real_multipliers": [
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077,
+          0.011363567282521077
+        ],
+        "shifts": [
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6,
+          -6
+        ]
+      },
+      "weights": {
+        "address_formula": "output_neuron * input_count + input_tap",
+        "dtype": "INT8",
+        "quantized_dimension": 0,
+        "scale": 0.010894655250012875,
+        "storage_order": "output-neuron-major",
+        "zero_point": 0
+      }
+    },
+    {
+      "activation": {
+        "fused": "NONE",
+        "maximum": 127,
+        "minimum": -128
+      },
+      "bias": {
+        "dtype": "INT32",
+        "scale": 0.00019670200708787888,
+        "zero_point": 0
+      },
+      "input": {
+        "dtype": "INT8",
+        "scale": 0.012775269336998463,
+        "zero_point": -128
+      },
+      "input_count": 16,
+      "layer_index": 3,
+      "output": {
+        "dtype": "INT8",
+        "scale": 0.008290956728160381,
+        "zero_point": 5
+      },
+      "output_count": 1,
+      "requantization": {
+        "formula": "MultiplyByQuantizedMultiplier(acc, multiplier, shift)",
+        "multipliers": [
+          1630361836
+        ],
+        "real_multipliers": [
+          0.0237248872280237
+        ],
+        "shifts": [
+          -5
+        ]
+      },
+      "weights": {
+        "address_formula": "output_neuron * input_count + input_tap",
+        "dtype": "INT8",
+        "quantized_dimension": 0,
+        "scale": 0.015397093258798122,
+        "storage_order": "output-neuron-major",
+        "zero_point": 0
+      }
+    }
+  ],
+  "model": {
+    "description": "MLIR Converted.",
+    "file_identifier": "TFL3",
+    "filename": "hello_world_int8.tflite",
+    "schema_version": 3,
+    "sha256": "505ee4fae7fa46ab67bea4c08b4969eb3eb8b9114c50595ec4a29d9a27993202",
+    "size_bytes": 2704
+  }
+}
