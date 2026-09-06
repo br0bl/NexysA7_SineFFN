@@ -78,8 +78,8 @@ module requantizer(
         else begin
             case(state)
                 3'b000: begin: START
-                    done <= 0;
-                    if(start) begin
+                    done <= 1'b0;
+                    if(start && (layer != 2'b00)) begin
                         locked_inp <= inp;
                         locked_layer <= layer;
                         state <= 3'b001; 
