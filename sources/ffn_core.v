@@ -109,6 +109,9 @@ module ffn_core(
         layer2_weight_address = 8'd0;
         layer2_bias_address = 4'd0;
         layer3_weight_address = 4'd0;
+        weight_in = 4'd0;
+        bias_in = 32'd0;
+        mac_in = 8'd0;
         
         case(layer_index) 
             2'b01: begin
