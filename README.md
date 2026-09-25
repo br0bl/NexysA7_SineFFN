@@ -1,4 +1,4 @@
-# NexysA7\_SineFFN
+# NexysA7\_FFN
 
 
 
