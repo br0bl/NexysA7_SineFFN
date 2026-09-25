@@ -8,13 +8,15 @@
 // Module Name: requantizer
 // Project Name: NexysA7_SineFFN
 // Target Devices: NexysA7
-// Tool Versions: Vivado 2025.2
+// Tool Versions: Vivado 2026.1
 // Description: 
 // 
 // Dependencies: 
 // 
-// Revision: 0.01
+// Revision: 1.01
 // Revision 0.01 - File Created
+// Revision 1.1 - Fixed timing error by implementing a
+//                 a signed 32-bit pipelined multiplier
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +32,7 @@ module requantizer(
                         output reg signed [7:0] op
                   );
               
-    reg [2:0] state;            
+    reg [3:0] state;            
               
     reg signed [31:0] locked_inp;
     reg [1:0] locked_layer;           
@@ -40,6 +42,22 @@ module requantizer(
     reg [3:0] right_shift;
     
     reg signed [63:0] operand;
+    
+    wire signed [63:0] product;
+    wire mult_done;
+    wire mult_start;
+    
+    multiplier_32b mult(
+                            .clk100mhz(clk100mhz),
+                            .rst_n(rst_n),
+                            .A(locked_inp),
+                            .B(multiplier),
+                            .start(mult_start),
+                            .done(mult_done),
+                            .P(product)        
+                       );
+    
+    assign mult_start = (state == 4'd1);
     
     always@(*) begin
         case(locked_layer)
@@ -70,49 +88,54 @@ module requantizer(
         if(!rst_n) begin
             done <= 0;
             op <= 8'sd0;
-            state <= 3'b000;
+            state <= 4'd0;
             locked_inp <= 0;
             locked_layer <= 0;
             operand <= 0;
         end
         else begin
             case(state)
-                3'b000: begin: START
+                4'd0: begin: START
                     done <= 1'b0;
                     if(start && (layer != 2'b00)) begin
                         locked_inp <= inp;
                         locked_layer <= layer;
-                        state <= 3'b001; 
+                        state <= 4'd1; 
                     end
                 end
-                3'b001: begin: EFFECTIVE_MULTIPLIER
-                    operand <= locked_inp*multiplier;
-                    state <= 3'b010;
+                4'd1: begin: EFFECTIVE_MULTIPLIER
+                    state <= 4'd2;
                 end
-                3'b010: begin: ROUNDING
+                4'd2: begin: MULTIPLIER_WAIT
+                    if(mult_done == 1'b1) begin
+                        operand <= product;
+                        state <= 4'd3;
+                    end 
+                end
+                4'd3: begin: ROUNDING
                     operand <= (operand + 64'sd1073741824) >>> 31;                                                      // Nudge and Divide by 2^31
-                    state <= 3'b011;
+                    state <= 4'd4;
                 end
-                3'b011: begin: DOUBLE_ROUNDING
+                4'd4: begin: DOUBLE_ROUNDING
                     if(operand >= 64'sd0) operand <= (operand + (64'sd1 << (right_shift - 4'd1))) >>> right_shift;      // Nudge and Divide by 2^k
                     else operand <= (operand + ((64'sd1 << (right_shift - 4'd1)) - 64'sd1)) >>> right_shift;
-                    state <= 3'b100;
+                    state <= 4'd5;
                 end
-                3'b100: begin: ZERO_POINT
+                4'd5: begin: ZERO_POINT
                     operand <= operand + zp;
-                    state <= 3'b101;
+                    state <= 4'd6;
                 end
-                3'b101: begin: SATURATION
+                4'd6: begin: SATURATION
                     if(operand > 64'sd127) operand <= 64'sd127;
                     else if (operand < -64'sd128) operand <= -64'sd128;
-                    state <= 3'b110;
+                    state <= 4'd7;
                 end
-                3'b110: begin: END
-                    op <= operand[8:0];
+                4'd7: begin: END
+                    op <= operand[7:0];
                     done <= 1;
-                    state <= 3'b000;
+                    state <= 4'd0;
                 end
-                default: state <= 3'b000;
+                default: state <= 4'd0;
             endcase
         end
     end    
