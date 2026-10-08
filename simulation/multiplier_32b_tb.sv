@@ -37,6 +37,42 @@ module multiplier_32b_tb();
     int tests_passed;
     int tests_failed;
     
+    multiplier_32b dut(
+                    .clk100mhz(clk),
+                    .rst_n(rst_n),
+                    .start(start),
+                    .done(done),
+                    .A(operand_a),
+                    .B(operand_b),
+                    .P(product)
+                 );
+                 
+    property valid_product;
+        @(negedge clk)
+        disable iff (!rst_n)
+        done |-> !$isunknown(product);
+    endproperty     
+
+    property fixed_pipeline_latency;
+        @(negedge clk)
+        disable iff (!rst_n)
+        done == $past(start, 5);
+    endproperty
+        
+    property reset_clears_output;
+        @(negedge clk)
+        !rst_n |-> (done === 1'b0 && product === 64'sd0);
+    endproperty
+    
+    assert property (valid_product)
+        else $error("P is unknown when done is asserted");   
+    
+    assert property (fixed_pipeline_latency)
+        else $error("Incorrect pipeline latency");        
+    
+    assert property (reset_clears_output)
+        else $error("output was not cleared after reset");
+        
     task automatic verify_reset();
         bit test_failed;
         test_failed = 1'b0;
@@ -45,34 +81,34 @@ module multiplier_32b_tb();
         @(negedge clk);
         rst_n = 1'b0;
         start = 1'b0;
-        operand_a = 32'sd0;
-        operand_b = 32'sd0;
+        operand_a = 32'sd128;
+        operand_b = 32'sd128;
         
         @(posedge clk) #1;      
         assert(done === 1'b0)
             else begin 
-                $fatal(1, "Error -> reset");
+                $fatal(1, "Error -> done reset");
                 test_failed = 1'b1;
             end
             
         assert(product === 64'sd0)
             else begin 
-                $fatal(1, "Error -> reset");
+                $fatal(1, "Error -> product reset");
                 test_failed = 1'b1;
             end
-        
+            
         for(int i = 0; i < 8; i++) begin
             @(posedge clk) #1;
             
             assert(done === 1'b0)
                 else begin 
-                    $fatal(1, "Error -> pipeline reset");
+                    $fatal(1, "Error -> pipeline done reset");
                     test_failed = 1'b1;
                 end
             
             assert(product === 64'sd0)
                 else begin 
-                    $fatal(1, "Error -> pipeline reset");
+                    $fatal(1, "Error -> pipeline product reset");
                     test_failed = 1'b1;
                 end          
         end
@@ -82,7 +118,7 @@ module multiplier_32b_tb();
         
         @(posedge clk);  
         if(test_failed) tests_failed++;
-        else tests_passed++; 
+        else tests_passed++;      
     endtask
     
     task automatic run_test(
@@ -111,7 +147,7 @@ module multiplier_32b_tb();
         
         @(negedge clk);
         start = 1'b0;
-        
+
         assert(done === 1'b0)
             else begin
                 $error("Error -> Test %s: done asserted early during stage 1", test_name);
@@ -139,20 +175,34 @@ module multiplier_32b_tb();
             test_failed = 1'b1;
         end 
         
+        @(negedge clk);
+        assert(done === 1'b0)
+            else begin
+                $error("Error -> Test %s: done asserted longer than 1-cycle", test_name);
+                test_failed = 1'b1;
+            end
+        
         if(test_failed) tests_failed++;
-        else tests_passed++;               
+        else tests_passed++;                 
     endtask                           
-    
-    multiplier_32b dut(
-                        .clk100mhz(clk),
-                        .rst_n(rst_n),
-                        .start(start),
-                        .done(done),
-                        .A(operand_a),
-                        .B(operand_b),
-                        .P(product)
-                     );
-                 
+ 
+    task automatic directed_tests();
+        run_test(32'sd0,             32'sd0,             "both zero");
+        run_test(32'sd0,            32'sd1937,          "zero operand");
+        run_test(32'sd4582,         32'sd1,             "identity");
+        run_test(32'sd4582,         -32'sd1,            "negation");
+        run_test(32'sd52,           32'sd731,           "positive times positive");
+        run_test(32'sd52,           -32'sd731,          "positive times negative");
+        run_test(-32'sd52,          32'sd731,           "negative times positive");
+        run_test(-32'sd52,          -32'sd731,          "negative times negative");
+        run_test(32'sh7fffffff,     32'sd2,             "maximum positive");
+        run_test(32'sh80000000,     32'sd1,             "minimum negative");
+        run_test(32'sh80000000,     -32'sd1,            "minimum times negative one");
+        run_test(32'sh80000000,     32'sh80000000,      "minimum times minimum");
+        run_test(32'sh12345678,     32'sh76543210,      "large full-width product");
+        run_test(32'sh55555555,     32'shaaaaaaaa,      "alternating bits");
+    endtask 
+       
     initial clk = 1'b0;
     always #5 clk = ~clk;                 
     
@@ -167,10 +217,13 @@ module multiplier_32b_tb();
         operand_b = 32'sd0;
         
         verify_reset();
+        directed_tests();
         
-        // Corner cases:
-        run_test(32'sd0, 32'sd0, "Both zero");
-        run_test(32'sd0, 32'sd2048, "Zero operand"); 
-        run_test(32'sd1245, 32'sd1, "Identity");
+        $display("Results\n--------------------------------");
+        $display("Tests Run: %d \nTests Passed: %d \nTests Failed: %d", 
+        tests_run, tests_passed, tests_failed);  
+        $display("--------------------------------");
+        
+        $finish;
     end                       
 endmodule
