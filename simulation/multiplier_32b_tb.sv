@@ -52,16 +52,23 @@ module multiplier_32b_tb();
         disable iff (!rst_n)
         done |-> !$isunknown(product);
     endproperty     
-
-    property fixed_pipeline_latency;
-        @(negedge clk)
-        disable iff (!rst_n)
-        done == $past(start, 5);
-    endproperty
         
     property reset_clears_output;
         @(negedge clk)
         !rst_n |-> (done === 1'b0 && product === 64'sd0);
+    endproperty
+    
+    logic [5:0] since_reset;
+    
+    always_ff @(negedge clk or negedge rst_n) begin
+        if(!rst_n) since_reset <= 0;
+        else since_reset <= {since_reset[4:0], 1'b1};
+    end   
+    
+    property fixed_pipeline_latency;
+        @(negedge clk)
+        disable iff (!rst_n || !since_reset[5])
+        done == $past(start, 5);
     endproperty
     
     assert property (valid_product)
@@ -71,7 +78,7 @@ module multiplier_32b_tb();
         else $error("Incorrect pipeline latency");        
     
     assert property (reset_clears_output)
-        else $error("output was not cleared after reset");
+        else $error("Output was not cleared after reset");     
         
     task automatic verify_reset();
         bit test_failed;
@@ -83,40 +90,25 @@ module multiplier_32b_tb();
         start = 1'b0;
         operand_a = 32'sd128;
         operand_b = 32'sd128;
-        
-        @(posedge clk) #1;      
-        assert(done === 1'b0)
+
+        #1 assert(done === 1'b0 && product === 64'sd0)
             else begin 
-                $fatal(1, "Error -> done reset");
-                test_failed = 1'b1;
-            end
-            
-        assert(product === 64'sd0)
-            else begin 
-                $fatal(1, "Error -> product reset");
+                $error("Reset is not asynchronous");
                 test_failed = 1'b1;
             end
             
         for(int i = 0; i < 8; i++) begin
             @(posedge clk) #1;
             
-            assert(done === 1'b0)
+            assert(done === 1'b0 && product === 64'sd0)
                 else begin 
-                    $fatal(1, "Error -> pipeline done reset");
+                    $error(1, "Pipeline failed to reset");
                     test_failed = 1'b1;
-                end
-            
-            assert(product === 64'sd0)
-                else begin 
-                    $fatal(1, "Error -> pipeline product reset");
-                    test_failed = 1'b1;
-                end          
+                end     
         end
 
         @(negedge clk);
-        rst_n = 1'b1;
-        
-        @(posedge clk);  
+        rst_n = 1'b1;  
         if(test_failed) tests_failed++;
         else tests_passed++;      
     endtask
@@ -150,7 +142,7 @@ module multiplier_32b_tb();
 
         assert(done === 1'b0)
             else begin
-                $error("Error -> Test %s: done asserted early during stage 1", test_name);
+                $error("Test %s: done asserted early during stage 1", test_name);
                 test_failed = 1'b1;
             end
         
@@ -158,7 +150,7 @@ module multiplier_32b_tb();
             @(negedge clk);
             assert(done === 1'b0)
                else begin
-                    $error("Error -> Test %s: done asserted early during stage %0d", test_name, stage);       
+                    $error("Test %s: done asserted early during stage %0d", test_name, stage);       
                     test_failed = 1'b1;
                 end
         end
@@ -166,19 +158,19 @@ module multiplier_32b_tb();
         @(negedge clk);
         if(done === 1'b1) begin            
             if(product !== expected) begin
-                $error("Error -> Test %s: product: %0d !== expected %0d", test_name, product, expected); 
+                $error("Test %s: product: %0d !== expected %0d", test_name, product, expected); 
                 test_failed = 1'b1;
             end
         end
         else begin
-            $error("Error -> Test %s: unexpected latency", test_name);
+            $error("Test %s: unexpected latency", test_name);
             test_failed = 1'b1;
         end 
         
         @(negedge clk);
         assert(done === 1'b0)
             else begin
-                $error("Error -> Test %s: done asserted longer than 1-cycle", test_name);
+                $error("Test %s: done asserted longer than 1-cycle", test_name);
                 test_failed = 1'b1;
             end
         
@@ -202,6 +194,73 @@ module multiplier_32b_tb();
         run_test(32'sh12345678,     32'sh76543210,      "large full-width product");
         run_test(32'sh55555555,     32'shaaaaaaaa,      "alternating bits");
     endtask 
+
+    typedef struct packed {
+        logic signed [31:0] a;
+        logic signed [31:0] b;
+        logic signed [63:0] expected;
+} transaction;
+
+task automatic random_pipeline(input int iter);
+    bit test_failed;
+
+    transaction expected_queue[$];
+    transaction current;
+    logic signed [63:0] extended_a, extended_b;
+
+    test_failed = 1'b0;
+    tests_run++;
+
+    for (int cycle = 0; cycle < iter + 6; cycle++) begin
+        @(negedge clk);
+
+        if (done === 1'b1) begin
+            if (expected_queue.size() == 0) begin
+                $error("done asserted with no expected transaction");
+                test_failed = 1'b1;
+            end
+            else begin
+                current = expected_queue.pop_front();
+
+                if (product !== current.expected) begin
+                    $error("A=%0d B=%0d expected=%0d actual=%0d",
+                           current.a, current.b, current.expected, product);
+                    test_failed = 1'b1;
+                end
+            end
+        end
+        else if (done !== 1'b0) begin
+            $error("done contains X or Z");
+            test_failed = 1'b1;
+        end
+
+        if (cycle < iter) begin
+            operand_a = $urandom;
+            operand_b = $urandom;
+            start = 1'b1;
+
+            extended_a = operand_a;
+            extended_b = operand_b;
+
+            current.a = operand_a;
+            current.b = operand_b;
+            current.expected = extended_a * extended_b;
+            expected_queue.push_back(current);
+        end
+        else begin
+            start = 1'b0;
+        end
+    end
+
+    if (expected_queue.size() != 0) begin
+        $error("%0d multiplication results were never received",
+               expected_queue.size());
+        test_failed = 1'b1;
+    end
+
+    if (test_failed) tests_failed++;
+    else             tests_passed++;
+endtask
        
     initial clk = 1'b0;
     always #5 clk = ~clk;                 
@@ -218,6 +277,7 @@ module multiplier_32b_tb();
         
         verify_reset();
         directed_tests();
+        random_pipeline(99);
         
         $display("Results\n--------------------------------");
         $display("Tests Run: %d \nTests Passed: %d \nTests Failed: %d", 
