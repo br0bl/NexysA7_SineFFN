@@ -15,8 +15,9 @@ timeprecision 1ps;
 // 
 // Dependencies: 
 // 
-// Revision: 1.02
+// Revision: 1.03
 // Revision 1.02 - File Created
+// Revision 1.03 - Testbench complete
 // Additional Comments: First system verilog module ;)
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -36,6 +37,7 @@ module multiplier_32b_tb();
     int tests_run;
     int tests_passed;
     int tests_failed;
+    int properties_violated;
     
     multiplier_32b dut(
                     .clk100mhz(clk),
@@ -67,18 +69,27 @@ module multiplier_32b_tb();
     
     property fixed_pipeline_latency;
         @(negedge clk)
-        disable iff (!rst_n || !since_reset[5])
+        disable iff (!rst_n || !since_reset[5] || $isunknown(since_reset))
         done == $past(start, 5);
     endproperty
     
     assert property (valid_product)
-        else $error("P is unknown when done is asserted");   
+        else begin 
+            $error("P is unknown when done is asserted");   
+            properties_violated++;
+        end
     
     assert property (fixed_pipeline_latency)
-        else $error("Incorrect pipeline latency");        
+        else begin 
+            $error("Incorrect pipeline latency");    
+            properties_violated++;
+        end    
     
     assert property (reset_clears_output)
-        else $error("Output was not cleared after reset");     
+        else begin
+            $error("Output was not cleared after reset");  
+            properties_violated++;
+        end   
         
     task automatic verify_reset();
         bit test_failed;
@@ -102,7 +113,7 @@ module multiplier_32b_tb();
             
             assert(done === 1'b0 && product === 64'sd0)
                 else begin 
-                    $error(1, "Pipeline failed to reset");
+                    $error("Pipeline failed to reset");
                     test_failed = 1'b1;
                 end     
         end
@@ -202,14 +213,9 @@ module multiplier_32b_tb();
 } transaction;
 
 task automatic random_pipeline(input int iter);
-    bit test_failed;
-
     transaction expected_queue[$];
     transaction current;
     logic signed [63:0] extended_a, extended_b;
-
-    test_failed = 1'b0;
-    tests_run++;
 
     for (int cycle = 0; cycle < iter + 6; cycle++) begin
         @(negedge clk);
@@ -217,7 +223,7 @@ task automatic random_pipeline(input int iter);
         if (done === 1'b1) begin
             if (expected_queue.size() == 0) begin
                 $error("done asserted with no expected transaction");
-                test_failed = 1'b1;
+                properties_violated++;
             end
             else begin
                 current = expected_queue.pop_front();
@@ -225,13 +231,14 @@ task automatic random_pipeline(input int iter);
                 if (product !== current.expected) begin
                     $error("A=%0d B=%0d expected=%0d actual=%0d",
                            current.a, current.b, current.expected, product);
-                    test_failed = 1'b1;
+                    tests_failed++;
                 end
+                else tests_passed++;
             end
         end
         else if (done !== 1'b0) begin
             $error("done contains X or Z");
-            test_failed = 1'b1;
+            properties_violated++;
         end
 
         if (cycle < iter) begin
@@ -246,6 +253,7 @@ task automatic random_pipeline(input int iter);
             current.b = operand_b;
             current.expected = extended_a * extended_b;
             expected_queue.push_back(current);
+            tests_run++;
         end
         else begin
             start = 1'b0;
@@ -255,11 +263,8 @@ task automatic random_pipeline(input int iter);
     if (expected_queue.size() != 0) begin
         $error("%0d multiplication results were never received",
                expected_queue.size());
-        test_failed = 1'b1;
+        tests_failed += expected_queue.size();
     end
-
-    if (test_failed) tests_failed++;
-    else             tests_passed++;
 endtask
        
     initial clk = 1'b0;
@@ -269,6 +274,7 @@ endtask
         tests_run = 0;
         tests_passed = 0;
         tests_failed = 0;
+        properties_violated = 0;
         
         rst_n = 1'b1;
         start = 1'b0;
@@ -277,11 +283,16 @@ endtask
         
         verify_reset();
         directed_tests();
-        random_pipeline(99);
+        random_pipeline(1000);
         
-        $display("Results\n--------------------------------");
-        $display("Tests Run: %d \nTests Passed: %d \nTests Failed: %d", 
-        tests_run, tests_passed, tests_failed);  
+        $display("--------------------------------");
+        if(tests_failed === 0 && properties_violated === 0)
+            $display("ALL TESTS PASSED\n");
+        else
+            $display("TEST(S) FAILED\n");
+
+        $display("Tests Run: %d \nTests Passed: %d \nTests Failed: %d \nProperties Violated: %d", 
+        tests_run, tests_passed, tests_failed, properties_violated);  
         $display("--------------------------------");
         
         $finish;
