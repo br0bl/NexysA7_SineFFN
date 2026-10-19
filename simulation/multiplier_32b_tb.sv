@@ -15,9 +15,10 @@ timeprecision 1ps;
 // 
 // Dependencies: 
 // 
-// Revision: 1.03
-// Revision 1.02 - File Created
-// Revision 1.03 - Testbench complete
+// Revision: 1.3
+// Revision 1.1 - File Created
+// Revision 1.2 - Testbench complete
+// Revision 1.3 - Cleaned up testbench
 // Additional Comments: First system verilog module ;)
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -48,6 +49,10 @@ module multiplier_32b_tb();
                     .B(operand_b),
                     .P(product)
                  );
+
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //              PROPERTIES
+    // ---- ---- ---- ---- ---- ---- ---- ----
                  
     property valid_product;
         @(negedge clk)
@@ -90,6 +95,10 @@ module multiplier_32b_tb();
             $error("Output was not cleared after reset");  
             properties_violated++;
         end   
+
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //             VERIFY RESET
+    // ---- ---- ---- ---- ---- ---- ---- ----
         
     task automatic verify_reset();
         bit test_failed;
@@ -123,6 +132,10 @@ module multiplier_32b_tb();
         if(test_failed) tests_failed++;
         else tests_passed++;      
     endtask
+
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //               RUN TEST
+    // ---- ---- ---- ---- ---- ---- ---- ----
     
     task automatic run_test(
                                 input logic signed [31:0] test_a,
@@ -189,6 +202,10 @@ module multiplier_32b_tb();
         else tests_passed++;                 
     endtask                           
  
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //            DIRECTED TESTS
+    // ---- ---- ---- ---- ---- ---- ---- ----
+
     task automatic directed_tests();
         run_test(32'sd0,             32'sd0,             "both zero");
         run_test(32'sd0,            32'sd1937,          "zero operand");
@@ -205,6 +222,10 @@ module multiplier_32b_tb();
         run_test(32'sh12345678,     32'sh76543210,      "large full-width product");
         run_test(32'sh55555555,     32'shaaaaaaaa,      "alternating bits");
     endtask 
+
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //             RANDOM TESTS
+    // ---- ---- ---- ---- ---- ---- ---- ----
 
     typedef struct packed {
         logic signed [31:0] a;
@@ -266,9 +287,17 @@ task automatic random_pipeline(input int iter);
         tests_failed += expected_queue.size();
     end
 endtask
+
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //                 CLOCK
+    // ---- ---- ---- ---- ---- ---- ---- ----
        
     initial clk = 1'b0;
-    always #5 clk = ~clk;                 
+    always #5 clk = ~clk;               
+
+    // ---- ---- ---- ---- ---- ---- ---- ----
+    //                 MAIN
+    // ---- ---- ---- ---- ---- ---- ---- ----  
     
     initial begin
         tests_run = 0;
