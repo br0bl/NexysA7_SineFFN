@@ -15,10 +15,11 @@ timeprecision 1ps;
 // 
 // Dependencies: 
 // 
-// Revision: 1.3
+// Revision: 1.4
 // Revision 1.1 - File Created
 // Revision 1.2 - Testbench complete
 // Revision 1.3 - Cleaned up testbench
+// Revision 1.4 - Fixed formatting
 // Additional Comments: First system verilog module ;)
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -101,6 +102,7 @@ module multiplier_32b_tb();
     // ---- ---- ---- ---- ---- ---- ---- ----
         
     task automatic verify_reset();
+
         bit test_failed;
         test_failed = 1'b0;
         tests_run++;
@@ -131,6 +133,7 @@ module multiplier_32b_tb();
         rst_n = 1'b1;  
         if(test_failed) tests_failed++;
         else tests_passed++;      
+
     endtask
 
     // ---- ---- ---- ---- ---- ---- ---- ----
@@ -199,7 +202,8 @@ module multiplier_32b_tb();
             end
         
         if(test_failed) tests_failed++;
-        else tests_passed++;                 
+        else tests_passed++;           
+
     endtask                           
  
     // ---- ---- ---- ---- ---- ---- ---- ----
@@ -207,6 +211,7 @@ module multiplier_32b_tb();
     // ---- ---- ---- ---- ---- ---- ---- ----
 
     task automatic directed_tests();
+
         run_test(32'sd0,             32'sd0,             "both zero");
         run_test(32'sd0,            32'sd1937,          "zero operand");
         run_test(32'sd4582,         32'sd1,             "identity");
@@ -221,6 +226,7 @@ module multiplier_32b_tb();
         run_test(32'sh80000000,     32'sh80000000,      "minimum times minimum");
         run_test(32'sh12345678,     32'sh76543210,      "large full-width product");
         run_test(32'sh55555555,     32'shaaaaaaaa,      "alternating bits");
+
     endtask 
 
     // ---- ---- ---- ---- ---- ---- ---- ----
@@ -231,62 +237,64 @@ module multiplier_32b_tb();
         logic signed [31:0] a;
         logic signed [31:0] b;
         logic signed [63:0] expected;
-} transaction;
+    } transaction;
 
-task automatic random_pipeline(input int iter);
-    transaction expected_queue[$];
-    transaction current;
-    logic signed [63:0] extended_a, extended_b;
+    task automatic random_pipeline(input int iter);
 
-    for (int cycle = 0; cycle < iter + 6; cycle++) begin
-        @(negedge clk);
+        transaction expected_queue[$];
+        transaction current;
+        logic signed [63:0] extended_a, extended_b;
 
-        if (done === 1'b1) begin
-            if (expected_queue.size() == 0) begin
-                $error("done asserted with no expected transaction");
+        for (int cycle = 0; cycle < iter + 6; cycle++) begin
+            @(negedge clk);
+
+            if (done === 1'b1) begin
+                if (expected_queue.size() == 0) begin
+                    $error("done asserted with no expected transaction");
+                    properties_violated++;
+                end
+                else begin
+                    current = expected_queue.pop_front();
+
+                    if (product !== current.expected) begin
+                        $error("A=%0d B=%0d expected=%0d actual=%0d",
+                            current.a, current.b, current.expected, product);
+                        tests_failed++;
+                    end
+                    else tests_passed++;
+                end
+            end
+            else if (done !== 1'b0) begin
+                $error("done contains X or Z");
                 properties_violated++;
             end
-            else begin
-                current = expected_queue.pop_front();
 
-                if (product !== current.expected) begin
-                    $error("A=%0d B=%0d expected=%0d actual=%0d",
-                           current.a, current.b, current.expected, product);
-                    tests_failed++;
-                end
-                else tests_passed++;
+            if (cycle < iter) begin
+                operand_a = $urandom;
+                operand_b = $urandom;
+                start = 1'b1;
+
+                extended_a = operand_a;
+                extended_b = operand_b;
+
+                current.a = operand_a;
+                current.b = operand_b;
+                current.expected = extended_a * extended_b;
+                expected_queue.push_back(current);
+                tests_run++;
+            end
+            else begin
+                start = 1'b0;
             end
         end
-        else if (done !== 1'b0) begin
-            $error("done contains X or Z");
-            properties_violated++;
+
+        if (expected_queue.size() != 0) begin
+            $error("%0d multiplication results were never received",
+                expected_queue.size());
+            tests_failed += expected_queue.size();
         end
 
-        if (cycle < iter) begin
-            operand_a = $urandom;
-            operand_b = $urandom;
-            start = 1'b1;
-
-            extended_a = operand_a;
-            extended_b = operand_b;
-
-            current.a = operand_a;
-            current.b = operand_b;
-            current.expected = extended_a * extended_b;
-            expected_queue.push_back(current);
-            tests_run++;
-        end
-        else begin
-            start = 1'b0;
-        end
-    end
-
-    if (expected_queue.size() != 0) begin
-        $error("%0d multiplication results were never received",
-               expected_queue.size());
-        tests_failed += expected_queue.size();
-    end
-endtask
+    endtask
 
     // ---- ---- ---- ---- ---- ---- ---- ----
     //                 CLOCK
@@ -325,5 +333,6 @@ endtask
         $display("--------------------------------");
         
         $finish;
-    end                       
+    end           
+
 endmodule
