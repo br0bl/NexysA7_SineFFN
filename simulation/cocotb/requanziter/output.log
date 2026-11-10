@@ -1,0 +1,26 @@
+     0.00ns INFO     cocotb.initialize                  Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb.regression                  Running tests
+     0.00ns INFO     cocotb.regression                  running requantizer_cocotb.test_directed_cases (1/6)
+  4315.00ns INFO     cocotb.regression                  requantizer_cocotb.test_directed_cases passed
+  4315.00ns INFO     cocotb.regression                  running requantizer_cocotb.test_randomized (2/6)
+134340.00ns INFO     cocotb.regression                  requantizer_cocotb.test_randomized passed
+134340.00ns INFO     cocotb.regression                  running requantizer_cocotb.test_reset (3/6)
+134425.00ns INFO     cocotb.regression                  requantizer_cocotb.test_reset passed
+134425.00ns INFO     cocotb.regression                  running requantizer_cocotb.test_reset_mid_operation (4/6)
+134720.00ns INFO     cocotb.regression                  requantizer_cocotb.test_reset_mid_operation passed
+134720.00ns INFO     cocotb.regression                  running requantizer_cocotb.test_requantizer_control (5/6)
+135485.00ns INFO     cocotb.regression                  requantizer_cocotb.test_requantizer_control passed
+135485.00ns INFO     cocotb.regression                  running requantizer_cocotb.test_latency (6/6)
+135640.01ns INFO     cocotb.regression                  requantizer_cocotb.test_latency passed
+135640.01ns INFO     cocotb.regression                  *****************************************************************************************************
+                                                        ** TEST                                         STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        *****************************************************************************************************
+                                                        ** requantizer_cocotb.test_directed_cases        PASS        4315.00           0.03     162638.58  **
+                                                        ** requantizer_cocotb.test_randomized            PASS      130025.00           0.65     200418.48  **
+                                                        ** requantizer_cocotb.test_reset                 PASS          85.00           0.00     136783.28  **
+                                                        ** requantizer_cocotb.test_reset_mid_operation   PASS         295.00           0.00     198344.26  **
+                                                        ** requantizer_cocotb.test_requantizer_control   PASS         765.00           0.00     153918.96  **
+                                                        ** requantizer_cocotb.test_latency               PASS         155.00           0.00     162308.76  **
+                                                        *****************************************************************************************************
+                                                        ** TESTS=6 PASS=6 FAIL=0 SKIP=0                            135640.01           0.69     197934.53  **
+                                                        *****************************************************************************************************

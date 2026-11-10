@@ -253,3 +253,133 @@ async def test_reset_mid_operation(dut):
 
     actual = await run_requantizer(dut, name, inp, layer)
     assert actual == expected, f"{name}: expected {expected}, got {actual}"
+
+@cocotb.test()
+async def test_requantizer_control(dut):
+    cocotb.start_soon(Clock(dut.clk100mhz, 10, unit="ns").start(start_high=False))
+    await reset_dut(dut)
+
+    name, inp, layer = DIRECTED_CASES[1]
+    expected = requantize_reference(inp, layer)
+
+    # No start
+
+    await FallingEdge(dut.clk100mhz)
+    dut.inp.value = inp
+    dut.layer.value = layer
+
+    for _ in range(20):
+        await RisingEdge(dut.clk100mhz)
+        await ReadOnly()
+
+        assert dut.done.value == 0, ("done asserted without start")
+        assert dut.op.value.to_signed() == 0, ("op changed without start")
+
+    # Invalid layer
+
+    await FallingEdge(dut.clk100mhz)
+    dut.layer.value = 0
+    dut.start.value = 1
+
+    await FallingEdge(dut.clk100mhz)
+    dut.start.value = 0
+
+    for _ in range(20):
+        await RisingEdge(dut.clk100mhz)
+        await ReadOnly()
+
+        assert dut.done.value == 0, ("started with invalid layer")
+        assert dut.op.value.to_signed() == 0, ("op changed with invalid layer")
+
+    # Start while busy
+
+    await FallingEdge(dut.clk100mhz)
+    dut.layer.value = layer
+    dut.start.value = 1
+
+    await FallingEdge(dut.clk100mhz)
+    dut.start.value = 0
+
+    await FallingEdge(dut.clk100mhz)
+    dut.start.value = 1
+
+    await FallingEdge(dut.clk100mhz)
+    dut.start.value = 0
+
+    for _ in range(20):
+        await RisingEdge(dut.clk100mhz)
+        await ReadOnly()
+        
+        if dut.done.value == 1:
+            assert dut.op.value.to_signed() == expected, (
+                            f"{name}: expected={expected}, "
+                            f"actual={dut.op.value.to_signed()}"
+                        )
+
+            for _ in range (20):
+                await RisingEdge(dut.clk100mhz)
+                await ReadOnly()
+
+                assert dut.done.value == 0, ("done remained high for more than one clock cycle")
+
+            return
+
+    raise AssertionError("timed out waiting for done")
+
+@cocotb.test()
+async def test_latency(dut):
+    cocotb.start_soon(Clock(dut.clk100mhz, 10, unit="ns").start(start_high=False))
+    await reset_dut(dut)
+
+    name, inp, layer = DIRECTED_CASES[2]
+    expected = requantize_reference(inp, layer)
+
+    await FallingEdge(dut.clk100mhz)
+    dut.inp.value = inp
+    dut.layer.value = layer
+    dut.start.value = 1
+
+    await FallingEdge(dut.clk100mhz)
+    dut.start.value = 0
+
+@cocotb.test()
+async def test_latency(dut):
+    cocotb.start_soon(Clock(dut.clk100mhz, 10, unit="ns").start(start_high=False))
+    await reset_dut(dut)
+
+    name, inp, layer = DIRECTED_CASES[2]
+    expected = requantize_reference(inp, layer)
+
+    await FallingEdge(dut.clk100mhz)
+    dut.inp.value = inp
+    dut.layer.value = layer
+    dut.start.value = 1
+
+    await FallingEdge(dut.clk100mhz)
+    dut.start.value = 0
+
+    observed_cycle = None
+
+    for cycle in range(1, 20):
+        await RisingEdge(dut.clk100mhz)
+        await ReadOnly()
+
+        if dut.done.value == 1:
+            observed_cycle = cycle
+
+            assert dut.op.value.to_signed() == expected, (
+                f"{name}: expected={expected}, "
+                f"actual={dut.op.value.to_signed()}"
+            )
+
+            break
+
+        assert dut.op.value.to_signed() == 0, (
+            f"{name}: op changed before done on cycle {cycle}"
+        )
+
+    assert observed_cycle == 12, (
+        f"{name}: expected done on cycle 12, "
+        f"observed done on cycle {observed_cycle}"
+    )
+
