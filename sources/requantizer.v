@@ -13,10 +13,10 @@
 // 
 // Dependencies: 
 // 
-// Revision: 1.01
+// Revision: 2.00
 // Revision 0.01 - File Created
-// Revision 1.1 - Fixed timing error by implementing a
-//                 a signed 32-bit pipelined multiplier
+// Revision 1.1 - Fixed timing error by implementing a signed 32-bit pipelined multiplier
+// Revision 2.0 - Removed double rounding stage to single operation to match simulated tflite contract
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -32,7 +32,7 @@ module requantizer(
                         output reg signed [7:0] op
                   );
               
-    reg [3:0] state;            
+    reg [2:0] state;            
               
     reg signed [31:0] locked_inp;
     reg [1:0] locked_layer;           
@@ -57,7 +57,7 @@ module requantizer(
                             .P(product)        
                        );
     
-    assign mult_start = (state == 4'd1);
+    assign mult_start = (state == 3'd1);
     
     always@(*) begin
         case(locked_layer)
@@ -88,56 +88,52 @@ module requantizer(
         if(!rst_n) begin
             done <= 0;
             op <= 8'sd0;
-            state <= 4'd0;
+            state <= 3'd0;
             locked_inp <= 0;
             locked_layer <= 0;
             operand <= 0;
         end
         else begin
             case(state)
-                4'd0: begin: START
+                3'd0: begin: START
                     done <= 1'b0;
                     if(start && (layer != 2'b00)) begin
                         locked_inp <= inp;
                         locked_layer <= layer;
-                        state <= 4'd1; 
+                        state <= 3'd1; 
                     end
                 end
-                4'd1: begin: EFFECTIVE_MULTIPLIER
-                    state <= 4'd2;
+                3'd1: begin: EFFECTIVE_MULTIPLIER
+                    state <= 3'd2;
                 end
-                4'd2: begin: MULTIPLIER_WAIT
+                3'd2: begin: MULTIPLIER_WAIT
                     if(mult_done == 1'b1) begin
                         operand <= product;
-                        state <= 4'd3;
+                        state <= 3'd3;
                     end 
                 end
-                4'd3: begin: ROUNDING
-                    operand <= (operand + 64'sd1073741824) >>> 31;                                                      // Nudge and Divide by 2^31
-                    state <= 4'd4;
+                3'd3: begin: ROUNDING
+                    operand <= (operand + (64'sd1 << (32'd30 + right_shift))) >>> (32'd31 + right_shift);                                                     
+                    state <= 3'd4;
                 end
-                4'd4: begin: DOUBLE_ROUNDING
-                    if(operand >= 64'sd0) operand <= (operand + (64'sd1 << (right_shift - 4'd1))) >>> right_shift;      // Nudge and Divide by 2^k
-                    else operand <= (operand + ((64'sd1 << (right_shift - 4'd1)) - 64'sd1)) >>> right_shift;
-                    state <= 4'd5;
-                end
-                4'd5: begin: ZERO_POINT
+                3'd4: begin: ZERO_POINT
                     operand <= operand + zp;
-                    state <= 4'd6;
+                    state <= 3'd5;
                 end
-                4'd6: begin: SATURATION
+                3'd5: begin: SATURATION
                     if(operand > 64'sd127) operand <= 64'sd127;
                     else if (operand < -64'sd128) operand <= -64'sd128;
-                    state <= 4'd7;
+                    state <= 3'd6;
                 end
-                4'd7: begin: END
+                3'd6: begin: END
                     op <= operand[7:0];
                     done <= 1;
-                    state <= 4'd0;
+                    state <= 3'd0;
                 end
-                default: state <= 4'd0;
+                default: state <= 3'd0;
             endcase
         end
     end    
                       
 endmodule
+

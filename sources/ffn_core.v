@@ -13,8 +13,10 @@
 // 
 // Dependencies: 
 // 
-// Revision: 0.01
+// Revision: 2.00
 // Revision 0.01 - File Created
+// Revision 2.00 - Fixed accumulation timing error by adding a buffer state MAC_FLUSH before requantizing.
+
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
@@ -193,32 +195,35 @@ module ffn_core(
                     end
                     else state <= 4'd6;
                 end
-                4'd6: begin: START_REQUANT
-                    requant_start <= 1'b1;
+                4'd6: begin: MAC_FLUSH
                     state <= 4'd7;
                 end
-                4'd7: begin: WAIT_REQUANT
-                    requant_start <= 1'b0;
-                    if(requant_done) state <= 4'd8;
+                4'd7: begin: START_REQUANT
+                    requant_start <= 1'b1;
+                    state <= 4'd8;
                 end
-                4'd8: begin: STORE_RESULT
+                4'd8: begin: WAIT_REQUANT
+                    requant_start <= 1'b0;
+                    if(requant_done) state <= 4'd9;
+                end
+                4'd9: begin: STORE_RESULT
                     case(layer_index) 
                         2'd1: begin
                             layer1_activations[neuron_index] <= requant_out; 
-                            state <= 4'd9;
+                            state <= 4'd10;
                         end
                         2'd2: begin
                             layer2_activations[neuron_index] <= requant_out;
-                            state <= 4'd9;
+                            state <= 4'd10;
                         end
                         2'd3: begin
                             y_q <= requant_out;
-                            state <= 4'd9;
+                            state <= 4'd10;
                         end
-                        default: state <= 4'd9;
+                        default: state <= 4'd10;
                     endcase
                 end
-                4'd9: begin: NEURON_CHECK
+                4'd10: begin: NEURON_CHECK
                     if(layer_index < 2'd3) begin
                         if(neuron_index < 4'd15) begin
                             neuron_index <= neuron_index + 4'd1;
@@ -232,9 +237,9 @@ module ffn_core(
                             state <= 4'd1;
                         end   
                     end
-                    else state <= 4'd10;
+                    else state <= 4'd11;
                 end
-                4'd10: begin: DONE
+                4'd11: begin: DONE
                     load_mac <= 1'b0;
                     acc_mac <= 1'b0;
                     requant_start <= 1'b0;
